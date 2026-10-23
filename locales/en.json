@@ -1,0 +1,12 @@
+{
+  "blocks.openingHours.label": "Opening hours",
+  "blocks.openingHours.heading.label": "Heading",
+  "blocks.openingHours.heading.hint": "For example, Laundry room. Leave it empty and it reads Opening hours.",
+  "blocks.openingHours.opens.label": "Opens",
+  "blocks.openingHours.closes.label": "Closes",
+  "blocks.openingHours.time.hint": "Write the time as 07:00, 07.00 or 7. The hours show only when both are filled in.",
+  "blocks.openingHours.note.label": "Note",
+  "blocks.openingHours.note.hint": "Shown under the hours, for example that it is closed on public holidays. Anyone who visits the website can read it.",
+  "blocks.openingHours.heading": "Opening hours",
+  "blocks.openingHours.open": "Open"
+}

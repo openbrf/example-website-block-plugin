@@ -1,0 +1,100 @@
+{
+  "name": "@openbrf/example-website-block-plugin",
+  "version": "0.1.0",
+  "description": "Reference Open BRF plugin that adds a block to the association's website: opening hours the board fills in, rendered on the server.",
+  "license": "MIT-0",
+  "type": "module",
+  "homepage": "https://github.com/openbrf/example-website-block-plugin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openbrf/example-website-block-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/openbrf/example-website-block-plugin/issues"
+  },
+  "packageManager": "pnpm@12.14.0",
+  "engines": {
+    "node": ">=26"
+  },
+  "files": [
+    "dist",
+    "locales"
+  ],
+  "scripts": {
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.server.json && node scripts/rename-server-bundle.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm run build && vitest run",
+    "check:package": "node scripts/check-package.mjs"
+  },
+  "openbrf": {
+    "apiVersion": 1,
+    "id": "opening-hours",
+    "entry": {
+      "server": "./dist/server.cjs"
+    },
+    "permissions": [
+      "site:blocks"
+    ],
+    "personalData": [],
+    "blocks": [
+      {
+        "name": "openingHours",
+        "labelKey": "blocks.openingHours.label",
+        "icon": "calendar",
+        "category": "association",
+        "settingsSchema": {
+          "fields": [
+            {
+              "key": "heading",
+              "labelKey": "blocks.openingHours.heading.label",
+              "hintKey": "blocks.openingHours.heading.hint",
+              "type": "text",
+              "default": "",
+              "maxLength": 80
+            },
+            {
+              "key": "opens",
+              "labelKey": "blocks.openingHours.opens.label",
+              "hintKey": "blocks.openingHours.time.hint",
+              "type": "text",
+              "default": "",
+              "maxLength": 5
+            },
+            {
+              "key": "closes",
+              "labelKey": "blocks.openingHours.closes.label",
+              "hintKey": "blocks.openingHours.time.hint",
+              "type": "text",
+              "default": "",
+              "maxLength": 5
+            },
+            {
+              "key": "note",
+              "labelKey": "blocks.openingHours.note.label",
+              "hintKey": "blocks.openingHours.note.hint",
+              "type": "text",
+              "default": "",
+              "maxLength": 300
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "peerDependencies": {
+    "@nestjs/common": "^12.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/common": "12.2.0",
+    "@nestjs/core": "12.2.0",
+    "@nestjs/testing": "12.2.0",
+    "@openbrf/plugin-sdk": "1.1.0",
+    "@openbrf/theme-tools": "1.0.0",
+    "@types/node": "26.6.5",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5",
+    "yaml": "2.9.1"
+  }
+}

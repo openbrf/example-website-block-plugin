@@ -1,0 +1,12 @@
+{
+  "blocks.openingHours.label": "Öppettider",
+  "blocks.openingHours.heading.label": "Rubrik",
+  "blocks.openingHours.heading.hint": "Till exempel Tvättstugan. Lämnar du den tom står det Öppettider.",
+  "blocks.openingHours.opens.label": "Öppnar",
+  "blocks.openingHours.closes.label": "Stänger",
+  "blocks.openingHours.time.hint": "Skriv tiden som 07.00, 07:00 eller 7. Tiderna visas bara när båda är ifyllda.",
+  "blocks.openingHours.note.label": "Övrigt",
+  "blocks.openingHours.note.hint": "Visas under tiderna, till exempel att det är stängt på helgdagar. Alla som besöker webbplatsen kan läsa det.",
+  "blocks.openingHours.heading": "Öppettider",
+  "blocks.openingHours.open": "Öppet"
+}

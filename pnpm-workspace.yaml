@@ -1,0 +1,11 @@
+# Makes this directory a pnpm workspace root, so an install here reads this
+# file's settings and nothing above it. None of it is part of the plugin: an
+# instance installs the packed tarball, which declares no dependencies.
+
+# Versions this package asked for while pnpm still held them back as freshly
+# published. pnpm records each exemption itself on the install that took it,
+# naming an exact version.
+minimumReleaseAgeExclude:
+  - '@nestjs/common@12.2.0'
+  - '@nestjs/core@12.2.0'
+  - '@nestjs/testing@12.2.0'
