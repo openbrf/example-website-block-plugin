@@ -1,0 +1,311 @@
+# CodeRabbit configuration for the Open BRF example website block plugin.
+#
+# Schema: https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+#
+# This is the reference plugin for a website block: a cooperative can install
+# it from the catalog, and plugin authors copy it to start their own. It runs
+# inside an instance with the instance's privileges and what it renders is
+# published to anyone, so the review holds it to the plugin contract and the
+# consent the board gives, and also asks whether a pattern here would be a bad
+# one to copy. It follows openbrf/example-plugin's .coderabbit.yaml, which
+# follows the core repository's; where it differs, the comment says why.
+# Most tools default to on, so each one switched off carries its reason.
+
+language: en-US
+
+# Capped at 250 characters by the schema; repo-wide rules live in the "**"
+# path instruction below.
+tone_instructions: >-
+  Be direct and specific: name the line, what breaks, and why. Skip praise and
+  skip restating the diff. This plugin publishes a block on the open website
+  and is copied by authors, so privacy and the contract outrank style.
+
+reviews:
+  profile: assertive
+
+  # Findings are the value; gatekeeping is CI's job.
+  request_changes_workflow: false
+
+  high_level_summary: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  related_issues: true
+  related_prs: true
+
+  # A public repository is a shop window. No poems, no fortunes.
+  poem: false
+  in_progress_fortune: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    # As in the core repository: a documentation-only pull request is not
+    # reviewed here, because reviews share an hourly allowance with the pull
+    # requests that carry code. The schema matches a keyword anywhere in the
+    # title, case-insensitively, so these catch "docs: ..." and
+    # "docs(scope): ...". A pull request with code must not use the docs type.
+    ignore_title_keywords:
+      - "docs:"
+      - "docs("
+    # Never pause automatic reviews. By default CodeRabbit pauses them after
+    # five reviewed commits and answers every later push with "Review paused".
+    auto_pause_after_reviewed_commits: 0
+    base_branches:
+      - main
+
+  pre_merge_checks:
+    # No commitlint runs here, unlike the core, so a title outside the
+    # convention is a warning rather than an error.
+    title:
+      mode: warning
+      requirements: >-
+        The title should follow Conventional Commits, as in openbrf/openbrf,
+        since a squash merge turns it into the commit message on main. A scope
+        is OPTIONAL: both "type: subject" and "type(scope): subject" are valid.
+        Do not ask for one. It must not contain AI attribution.
+    description:
+      mode: warning
+    # The code comments why a thing exists, not what the next line does. A
+    # coverage threshold would push reviews toward the second kind.
+    docstrings:
+      mode: "off"
+
+  # Every finishing touch has CodeRabbit push commits or open pull requests in
+  # this repository, and chat answers accounts outside the organisation (see
+  # `chat` below). All of them stay off, so only maintainers put code on a
+  # branch here.
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+    simplify:
+      enabled: false
+    autofix:
+      enabled: false
+    fix_ci:
+      enabled: false
+    resolve_merge_conflict:
+      enabled: false
+
+  path_filters:
+    # Generated: reviewing these produces noise, not findings.
+    - "!pnpm-lock.yaml"
+    - "!**/node_modules/**"
+    - "!dist/**"
+    - "!release/**"
+
+  path_instructions:
+    - path: "**"
+      instructions: >-
+        Repository-wide rules.
+
+        Never add AI attribution to anything you propose: no Co-authored-by
+        trailers naming an AI, no "Generated with" banners, no session links.
+        This applies to committable suggestions and to any commit message you
+        draft.
+
+        Prefer a small number of findings that would actually change the code
+        over exhaustive commentary. If a change is fine, say so briefly rather
+        than inventing something to raise.
+
+        This plugin is built only against the published plugin contract,
+        @openbrf/plugin-sdk, as any third-party plugin is. Flag anything that
+        relies on the core's internals rather than the contract
+        (docs/plugin-contract.md in openbrf/openbrf), because authors copy it.
+
+        Domain terms follow GLOSSARY.md in openbrf/openbrf.
+
+    - path: "package.json"
+      instructions: >-
+        The "openbrf" field is the manifest, and the board consents to its
+        permissions and personalData before anything is downloaded. A later
+        version that asks for more is refused until the board consents again.
+        Flag a declaration the code does not use, and code that uses
+        something the manifest does not declare.
+
+        The plugin asks for site:blocks alone. The contract refuses it beside
+        addressBook:read, addressBook:readContact, finances:read and
+        addressBook:proposeImport, because a block is published to anyone:
+        flag any permission added beside it that reads the register or the
+        finances, and any personal data category declared.
+
+        Each entry in "blocks" needs a render function registered in
+        src/server.ts under the same name, and every labelKey and hintKey it
+        names must exist in both locale files. A block's settings may not
+        declare a secret field, because they are published with the page.
+
+        The package declares no runtime dependencies: @nestjs/common is a peer
+        dependency the host provides, and @openbrf/plugin-sdk is for types
+        only. Flag a new entry in "dependencies", a peer dependency that is
+        bundled, and a "files" list that would ship sources, tests or scripts.
+
+        A version change comes with its CHANGELOG.md entry.
+
+    - path: "src/server.ts"
+      instructions: >-
+        This file is the whole server: the host requires one CommonJS bundle
+        that requires nothing but the host's packages (@nestjs/common,
+        @nestjs/core and zod) and Node's built-in modules. Flag an import that
+        would become a relative require or a require of another package, and a
+        value import from @openbrf/plugin-sdk.
+
+        Everything the plugin uses at runtime arrives on the host object. Flag
+        a call to a host service the manifest does not ask for, and a use of
+        host.blocks, or any other newer host member, without checking that it
+        exists, since an older host does not have it. Blocks are registered
+        from the module factory: the host reads the registrations once, at
+        start-up.
+
+        The render function returns a tree of elements, never an HTML string,
+        and the host keeps only the elements and attributes in the SDK's
+        PLUGIN_BLOCK_ELEMENTS and PLUGIN_BLOCK_ATTRIBUTES. Flag an element or
+        attribute outside them (it is silently dropped, with everything inside
+        it), a class or style attribute, text parsed into elements, and
+        anything that depends on who is reading: the same page is rendered for
+        a visitor with no account and for a member. A render must answer
+        within 2000 ms; slow work takes the signal it is given. Missing,
+        empty and whitespace-only settings must render something sensible or
+        nothing, never throw.
+
+        Every user-facing string is a translation key in the plugin's own
+        namespace, read with t; the board's own text is printed as it wrote
+        it. Flag an outbound network call that is not explained in the pull
+        request: the board is told at install that the plugin sends nothing
+        outside the instance.
+
+    - path: "locales/*.json"
+      instructions: >-
+        sv.json and en.json carry the same keys; flag a key in one and not the
+        other. Swedish is the interface's own language, so its text is the
+        reference and the English follows it. A key the manifest or the render
+        function names must exist in both. The host merges them under the
+        plugin-opening-hours namespace.
+
+    - path: "test/**"
+      instructions: >-
+        Prefer tests that would fail if the behaviour regressed. Flag a test
+        that asserts only that a call did not throw. The render output is
+        asserted as the exact tree the host receives; keep it that way rather
+        than matching fragments. The module tests load the built
+        dist/server.cjs on purpose, to prove the shipped bundle loads; do not
+        propose importing the source instead. fake-host.ts stands in for the
+        host, and reading a member the plugin does not use throws; flag a
+        change that makes one of them answer.
+
+    - path: "{scripts/**,tsconfig*.json}"
+      instructions: >-
+        These produce the tarball an instance installs and the catalog checks:
+        dist/server.cjs and the locale files. check-package.mjs reads the
+        packed tarball the way the catalog does; flag a change that would make
+        it pass a package the catalog refuses.
+
+    - path: ".github/workflows/**"
+      instructions: >-
+        This repository is public, so a workflow is an attack surface. Flag
+        actions referenced by anything other than a full commit SHA, any use
+        of pull_request_target, a token or secret exposed to a step that does
+        not need it, and a missing least-privilege permissions block. A
+        checkout must keep persist-credentials: false.
+
+        The catalog accepts only an attestation made by release.yml, on a
+        GitHub-hosted runner, for the release's own tag, of a commit on main.
+        Flag a change that would make the workflow run on anything but a v*
+        tag push, attest a tarball other than the one it attaches, publish the
+        release before the tarball is attached, or skip the package check on
+        the packed tarball before attesting it.
+
+    - path: "**/*.md"
+      instructions: >-
+        Documentation is in English; Swedish appears only where the
+        interface's own text is quoted. The README is what an author follows
+        to start a plugin and release it, and its tables state what the
+        manifest declares and why, so flag a table or step that no longer
+        matches package.json, the code or the workflow.
+
+  tools:
+    # Secrets. Belt and braces alongside GitHub push protection.
+    gitleaks:
+      enabled: true
+    # The release workflow makes the attestation the catalog relies on.
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    yamllint:
+      enabled: true
+    # The workflows' run steps are shell.
+    shellcheck:
+      enabled: true
+    # No linter runs in CI here; oxlint's default rules are correctness ones,
+    # which cost little noise.
+    oxc:
+      enabled: true
+
+    # --- Deliberately off ---------------------------------------------------
+    # The plugin reads no personal data, and the tests' Swedish place names
+    # and notes would only give a PII detector false positives.
+    presidio:
+      enabled: false
+    # The README keeps hand-written formatting.
+    markdownlint:
+      enabled: false
+    # Prose linters on a bilingual package produce more noise than signal.
+    languagetool:
+      enabled: false
+    vale:
+      enabled: false
+    # Not this repository's linters; enabling them only produces
+    # missing-config errors.
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    # Dependency advisories arrive through Dependabot alerts. Every dependency
+    # here is a build-time one or a peer the host provides, so none ships in
+    # the package.
+    osvScanner:
+      enabled: false
+
+chat:
+  auto_reply: true
+  # Accounts outside the organisation are answered too, so a contributor can
+  # ask for a review of their own pull request with `@coderabbitai review`.
+  # Automatic reviews do not depend on this setting. The finishing touches are
+  # off (see `reviews.finishing_touches`), so no comment can make CodeRabbit
+  # write code here.
+  allow_non_org_members: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "README.md"
+  # The plugin contract and the SDK live in the core.
+  linked_repositories:
+    - repository: "openbrf/openbrf"
+      instructions: >-
+        The Open BRF core. docs/plugin-contract.md is the contract this plugin
+        is built against, and its "Website blocks" section covers this
+        plugin's block; ADR 0006 is the page block model. packages/plugin-sdk
+        publishes the types, the schemas, the block element list and
+        pluginPackageProblems. GLOSSARY.md fixes the domain terms.
+    - repository: "openbrf/example-plugin"
+      instructions: >-
+        The reference plugin with a view, routes, an action and register
+        reads. This repository is modelled on it and keeps its layout, CI and
+        release workflow; a block lives here because the contract refuses
+        site:blocks beside the register read example-plugin needs.
+    - repository: "openbrf/catalog"
+      instructions: >-
+        The curated catalog that lists this plugin. Its README states what a
+        listed release must meet and what its maintainers read in a plugin's
+        server bundle before approving it. Its checks build the SDK from the
+        core commit pinned as CORE_REF in .github/workflows/check.yml and run
+        that revision's pluginPackageProblems, so a contract change on the
+        core's main branch is not enforced by the catalog until CORE_REF moves.
+  # Keep what it learns to this repository rather than sharing it wider.
+  learnings:
+    scope: local

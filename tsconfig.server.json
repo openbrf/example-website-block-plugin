@@ -1,0 +1,25 @@
+{
+  // The server bundle only.
+  //
+  // The contract asks for one prebuilt CommonJS file whose only requires are
+  // the host's packages and Node's built-in modules, so `src/server.ts` holds
+  // everything the server runs: a second source file it imported would be
+  // emitted as a second file, and requiring it is a relative require the
+  // package check refuses.
+  //
+  // tsc names its output after the source, `dist/server.js`, and
+  // `scripts/rename-server-bundle.mjs` renames it to the `dist/server.cjs` the
+  // manifest declares. The extension is what makes the file CommonJS inside a
+  // package whose type is `module`, which is what the host's `require` needs.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "types": [],
+    "outDir": "dist",
+    "rootDir": "src",
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src/server.ts"]
+}

@@ -1,0 +1,193 @@
+name: Release
+
+# Publishes the version a `v<version>` tag names: one tarball, packed once,
+# checked, attested and attached to a GitHub release this workflow creates.
+#
+# The catalog lists a plugin only from an immutable release of the repository
+# its source lives in, with a build attestation made by that repository's own
+# release workflow, at this path, on a GitHub-hosted runner, in a run on the
+# release's tag:
+#
+#   gh attestation verify <file> --repo openbrf/example-website-block-plugin
+#     --signer-workflow openbrf/example-website-block-plugin/.github/workflows/release.yml
+#     --source-ref refs/tags/v<version> --deny-self-hosted-runners
+#
+# So this runs on the tag push and nowhere else, and keeps its path. The
+# catalog also asks GitHub whether the commit the attestation names is on
+# `main`: the check below that the tag is on `main` runs as the tagged commit
+# has it, so it can be edited away on a branch, and the catalog does not rely
+# on it.
+#
+# Do not publish the release from the GitHub UI first: that creates the tag,
+# the tag push then starts this workflow after the release is already
+# immutable, and the upload fails.
+#
+# Two jobs, so that nothing installed from the lockfile runs where an
+# attestation can be signed. `build` installs, tests and packs with read
+# access only, and hands the tarball and its sha512 to `publish`. `publish`
+# installs and runs none of the lockfile's packages: it holds the downloaded
+# tarball to that sha512, attests it and creates the release. Code that runs at build time
+# can still change what it builds, which the tests and the catalog's checks
+# are there for, but it never holds the token that signs an attestation, so
+# it cannot attest anything else as this workflow's output.
+# `test/release-workflow.test.ts` holds the workflow to this split.
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build, test, pack and check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      tarball: ${{ steps.pack.outputs.tarball }}
+      sha512: ${{ steps.pack.outputs.sha512 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The whole history, to check the tagged commit is on main.
+          fetch-depth: 0
+
+      - name: Check the tag names this version, on main
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "${GITHUB_REF}" != "refs/tags/v${version}" ]; then
+            echo "::error::The tag is ${GITHUB_REF#refs/tags/}, but package.json is at version ${version}. Tag v${version}, or change the version in a pull request first."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::v${version} points at a commit that is not on main. Release only what main has merged."
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          # No dependency cache: what goes into a release is installed from
+          # the lockfile alone.
+          package-manager-cache: false
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      # Builds `dist/`, which the pack below takes as it is.
+      - run: pnpm test
+
+      - name: Pack the tarball
+        id: pack
+        run: |
+          mkdir release
+          npm pack --ignore-scripts --json --pack-destination release > release/pack.json
+          filename="$(node -p 'require("./release/pack.json")[0].filename')"
+          rm release/pack.json
+          sha512="sha512-$(openssl dgst -sha512 -binary "release/${filename}" | base64 -w0)"
+          echo "TARBALL=release/${filename}" >> "${GITHUB_ENV}"
+          echo "tarball=${filename}" >> "${GITHUB_OUTPUT}"
+          echo "sha512=${sha512}" >> "${GITHUB_OUTPUT}"
+
+      # The file checked here is the one `publish` attests and uploads, held
+      # to the sha512 above: what the catalog verifies is byte for byte what
+      # passed.
+      - name: Check the tarball as the catalog will
+        run: node scripts/check-package.mjs "${TARBALL}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tarball
+          path: ${{ env.TARBALL }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Attest and publish
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Create the release and upload the tarball.
+      contents: write
+      # The signing certificate for the attestation, and its record.
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarball
+          path: release
+
+      # The build's outputs come from a job that ran the dependencies, so they
+      # are read as data: through the environment, and held to their shape.
+      - name: Check the tarball is the one the build checked
+        env:
+          BUILT_TARBALL: ${{ needs.build.outputs.tarball }}
+          BUILT_SHA512: ${{ needs.build.outputs.sha512 }}
+        run: |
+          if ! [[ "${BUILT_TARBALL}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.tgz$ ]]; then
+            echo "::error::The build named the tarball '${BUILT_TARBALL}', which is not a tarball's file name."
+            exit 1
+          fi
+          files="$(ls -A release)"
+          if [ "${files}" != "${BUILT_TARBALL}" ]; then
+            echo "::error::The build's artifact holds other files than ${BUILT_TARBALL} alone."
+            exit 1
+          fi
+          tarball="release/${BUILT_TARBALL}"
+          sha512="sha512-$(openssl dgst -sha512 -binary "${tarball}" | base64 -w0)"
+          if [ "${sha512}" != "${BUILT_SHA512}" ]; then
+            echo "::error::The downloaded tarball's sha512 is ${sha512}, but the build packed ${BUILT_SHA512}."
+            exit 1
+          fi
+          echo "TARBALL=${tarball}" >> "${GITHUB_ENV}"
+          echo "SHA512=${sha512}" >> "${GITHUB_ENV}"
+
+      - name: Attest the tarball
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ env.TARBALL }}
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The build checked that the tag names the version in package.json.
+          tag="${GITHUB_REF#refs/tags/}"
+          bytes="$(stat -c %s "${TARBALL}")"
+          name="$(basename "${TARBALL}")"
+          {
+            echo "The plugin tarball for the catalog, built and attested by this repository's release workflow for \`${tag}\`."
+            echo
+            echo '```'
+            echo "file    ${name}"
+            echo "sha512  ${SHA512}"
+            echo "bytes   ${bytes}"
+            echo '```'
+            echo
+            echo "Verify it as the catalog does:"
+            echo
+            echo '```'
+            echo "gh attestation verify ${name} --repo ${GITHUB_REPOSITORY} --signer-workflow ${GITHUB_REPOSITORY}/.github/workflows/release.yml --source-ref refs/tags/${tag} --deny-self-hosted-runners"
+            echo '```'
+            echo
+            echo "The catalog also requires the commit the attestation names to be on \`main\`."
+            echo
+            echo "What changed is in [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/${tag}/CHANGELOG.md)."
+          } > notes.md
+          # With an asset to attach, gh creates the release as a draft,
+          # uploads the asset and only then publishes it, so the immutable
+          # release is never seen without its tarball.
+          gh release create "${tag}" "${TARBALL}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --verify-tag \
+            --title "${tag}" \
+            --notes-file notes.md
