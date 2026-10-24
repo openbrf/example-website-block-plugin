@@ -58,9 +58,33 @@ describe("the server bundle", () => {
         note: "",
       }),
     );
-    expect(content).toMatchObject({
+    expect(content).toEqual({
       tag: "section",
-      children: [{ tag: "h2", children: ["Laundry room"] }, { tag: "dl" }],
+      children: [
+        { tag: "h2", children: ["Laundry room"] },
+        {
+          tag: "dl",
+          children: [
+            { tag: "dt", children: ["Open"] },
+            {
+              tag: "dd",
+              children: [
+                {
+                  tag: "time",
+                  attributes: { dateTime: "07:00" },
+                  children: ["07:00"],
+                },
+                "–",
+                {
+                  tag: "time",
+                  attributes: { dateTime: "22:00" },
+                  children: ["22:00"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     });
     expect(await block?.render(renderContext("sv", {}))).toBeNull();
   });

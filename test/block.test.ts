@@ -169,19 +169,65 @@ describe("the opening hours block", () => {
   });
 
   it("closes at midnight as 24.00, with a time of day a machine can read", () => {
-    const content = render({ opens: "6", closes: "24:00" });
-    expect(JSON.stringify(content)).toContain(
-      '{"tag":"time","attributes":{"dateTime":"00:00"},"children":["24.00"]}',
-    );
+    expect(render({ opens: "6", closes: "24:00" })).toEqual({
+      tag: "section",
+      children: [
+        { tag: "h2", children: ["Öppettider"] },
+        {
+          tag: "dl",
+          children: [
+            { tag: "dt", children: ["Öppet"] },
+            {
+              tag: "dd",
+              children: [
+                {
+                  tag: "time",
+                  attributes: { dateTime: "06:00" },
+                  children: ["06.00"],
+                },
+                "–",
+                {
+                  tag: "time",
+                  attributes: { dateTime: "00:00" },
+                  children: ["24.00"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("keeps the note as text, for the host to escape", () => {
     expect(
       render({ opens: "8", closes: "9", note: "<script>alert(1)</script>" }),
-    ).toMatchObject({
+    ).toEqual({
+      tag: "section",
       children: [
-        { tag: "h2" },
-        { tag: "dl" },
+        { tag: "h2", children: ["Öppettider"] },
+        {
+          tag: "dl",
+          children: [
+            { tag: "dt", children: ["Öppet"] },
+            {
+              tag: "dd",
+              children: [
+                {
+                  tag: "time",
+                  attributes: { dateTime: "08:00" },
+                  children: ["08.00"],
+                },
+                "–",
+                {
+                  tag: "time",
+                  attributes: { dateTime: "09:00" },
+                  children: ["09.00"],
+                },
+              ],
+            },
+          ],
+        },
         { tag: "p", children: ["<script>alert(1)</script>"] },
       ],
     });
