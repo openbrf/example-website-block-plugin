@@ -2,7 +2,6 @@ import {
   PLUGIN_BLOCK_ATTRIBUTES,
   PLUGIN_BLOCK_ELEMENTS,
   type PluginBlockContent,
-  type PluginBlockElement,
   type PluginBlockNode,
 } from "@openbrf/plugin-sdk";
 import { describe, expect, it } from "vitest";
@@ -116,10 +115,33 @@ describe("the opening hours block", () => {
 
   it("uses its own heading when the board leaves the heading empty or blank", () => {
     for (const heading of ["", "   ", undefined]) {
-      const content = render({ heading, opens: "8", closes: "20" });
-      expect((content as PluginBlockElement).children?.[0]).toEqual({
-        tag: "h2",
-        children: ["Öppettider"],
+      expect(render({ heading, opens: "8", closes: "20" })).toEqual({
+        tag: "section",
+        children: [
+          { tag: "h2", children: ["Öppettider"] },
+          {
+            tag: "dl",
+            children: [
+              { tag: "dt", children: ["Öppet"] },
+              {
+                tag: "dd",
+                children: [
+                  {
+                    tag: "time",
+                    attributes: { dateTime: "08:00" },
+                    children: ["08.00"],
+                  },
+                  "–",
+                  {
+                    tag: "time",
+                    attributes: { dateTime: "20:00" },
+                    children: ["20.00"],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
       });
     }
   });
